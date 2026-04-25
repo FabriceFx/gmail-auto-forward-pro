@@ -20,7 +20,7 @@
 
 ---
 
-## 🛠 Technologies Uutilisées
+## 🛠 Technologies utilisées
 
 * **Langage** : Google Apps Script (JavaScript V8).
 * **Services Google** : `GmailApp` (Recherche/Transfert), `CardService` (UI), `PropertiesService` (Stockage).
