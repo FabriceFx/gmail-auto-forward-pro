@@ -2,91 +2,137 @@
  * Constantes pour l'application
  */
 const CONFIG = {
-  MAX_THREADS: 50,            // Limite de threads par exécution (timeout 6 min)
-  PROCESSED_IDS_KEY: "processedMessageIds",  // Clé de stockage des IDs traités
-  MAX_STORED_IDS: 500,        // ~500 IDs × 18 chars ≈ 9 KB (limite PropertiesService)
-  LAST_RUN_KEY: "lastRunDate", // Date du dernier transfert
-  LAST_COUNT_KEY: "lastRunCount", // Nombre du dernier batch transféré
-  TRIGGER_INTERVAL_MIN: 15    // Intervalle du déclencheur temporel (en minutes)
+  MAX_THREADS: 50,
+  PROCESSED_IDS_KEY: "processedMessageIds",
+  MAX_STORED_IDS: 500,
+  LAST_RUN_KEY: "lastRunDate",
+  LAST_COUNT_KEY: "lastRunCount",
+  TRIGGER_INTERVAL_HOURS: 1,
+  RULES_KEY: "rules",
+  MAX_RULES: 10
 };
 
-/**
- * Affiche l'interface de configuration
- */
-function buildSettingsCard() {
+// ============================================================
+//  STOCKAGE DES RÈGLES
+// ============================================================
+
+/** Récupère les règles. Migre l'ancien format mono-règle si nécessaire. */
+function getRules_() {
   const props = PropertiesService.getUserProperties();
-  
-  // En-tête stylisé avec une icône Material
+  const raw = props.getProperty(CONFIG.RULES_KEY);
+  if (raw) return JSON.parse(raw);
+
+  // Migration de l'ancien format
+  const oldQuery = props.getProperty("query");
+  const oldEmail = props.getProperty("email");
+  if (oldQuery && oldEmail) {
+    const migrated = [{
+      id: "r_" + Date.now(),
+      query: oldQuery,
+      email: oldEmail,
+      message: props.getProperty("message") || "",
+      enabled: true
+    }];
+    saveRules_(migrated);
+    props.deleteProperty("query");
+    props.deleteProperty("email");
+    props.deleteProperty("message");
+    return migrated;
+  }
+  return [];
+}
+
+/** Sauvegarde les règles en JSON dans UserProperties */
+function saveRules_(rules) {
+  PropertiesService.getUserProperties()
+    .setProperty(CONFIG.RULES_KEY, JSON.stringify(rules));
+}
+
+/** Trouve une règle par ID */
+function findRule_(ruleId) {
+  return getRules_().find(r => r.id === ruleId) || null;
+}
+
+// ============================================================
+//  CARTE PRINCIPALE — LISTE DES RÈGLES
+// ============================================================
+
+function buildSettingsCard() {
+  const rules = getRules_();
+  const scriptProps = PropertiesService.getScriptProperties();
+  const totalProcessed = getProcessedIds().length;
+  const lastRun = scriptProps.getProperty(CONFIG.LAST_RUN_KEY) || "Jamais";
+  const lastCount = scriptProps.getProperty(CONFIG.LAST_COUNT_KEY) || "0";
+
   const header = CardService.newCardHeader()
     .setTitle("Automatisation Gmail")
-    .setSubtitle("Paramètres de transfert automatique")
+    .setSubtitle(`${rules.length} règle(s) configurée(s)`)
     .setImageUrl("https://www.gstatic.com/images/icons/material/system/2x/forward_to_inbox_googblue_48dp.png")
     .setImageStyle(CardService.ImageStyle.CIRCLE);
 
-  // Section d'information
-  const infoSection = CardService.newCardSection()
-    .addWidget(CardService.newDecoratedText()
-      .setText("Configurez vos règles de transfert automatique en arrière-plan.")
+  // Section liste des règles
+  const rulesSection = CardService.newCardSection()
+    .setHeader("Règles de transfert");
+
+  if (rules.length === 0) {
+    rulesSection.addWidget(CardService.newDecoratedText()
+      .setText("<i>Aucune règle configurée.</i>")
       .setStartIcon(CardService.newIconImage()
-        .setIconUrl("https://www.gstatic.com/images/icons/material/system/2x/info_googblue_48dp.png")));
+        .setIconUrl("https://www.gstatic.com/images/icons/material/system/2x/inbox_grey600_48dp.png")));
+  } else {
+    rules.forEach(rule => {
+      const statusIcon = rule.enabled
+        ? "https://www.gstatic.com/images/icons/material/system/2x/check_circle_googgreen_48dp.png"
+        : "https://www.gstatic.com/images/icons/material/system/2x/pause_circle_grey600_48dp.png";
+      const statusText = rule.enabled
+        ? `<font color="#1e8e3e"><b>Active</b></font>`
+        : `<font color="#9e9e9e"><b>En pause</b></font>`;
 
-  // Section de configuration principale
-  const formSection = CardService.newCardSection()
-    .setHeader("Règles de filtrage et destination")
-    .addWidget(CardService.newTextInput()
-      .setFieldName("query")
-      .setTitle("Requête Gmail (ex: is:unread)")
-      .setHint("Astuce : utilisez 'is:unread' pour cibler les nouveaux messages.")
-      .setValue(props.getProperty("query") || ""))
-    .addWidget(CardService.newTextInput()
-      .setFieldName("email")
-      .setTitle("Adresse email de destination")
-      .setHint("L'adresse doit être validée dans Gmail > Paramètres > Transfert et POP/IMAP.")
-      .setValue(props.getProperty("email") || ""))
-    .addWidget(CardService.newTextInput()
-      .setFieldName("message")
-      .setTitle("Message d'accompagnement (Optionnel)")
-      .setMultiline(true)
-      .setValue(props.getProperty("message") || ""));
+      rulesSection.addWidget(CardService.newDecoratedText()
+        .setTopLabel(`${statusText} — ${truncate_(rule.query, 35)}`)
+        .setText(`→ ${rule.email}`)
+        .setWrapText(true)
+        .setStartIcon(CardService.newIconImage().setIconUrl(statusIcon))
+        .setButton(CardService.newTextButton()
+          .setText("✏️")
+          .setOnClickAction(CardService.newAction()
+            .setFunctionName("showEditRuleCard")
+            .setParameters({"ruleId": rule.id}))));
+    });
+  }
 
-  // Section pour les boutons d'action
+  // Bouton ajouter
+  if (rules.length < CONFIG.MAX_RULES) {
+    rulesSection.addWidget(CardService.newTextButton()
+      .setText("+ Ajouter une règle")
+      .setOnClickAction(CardService.newAction().setFunctionName("showNewRuleCard"))
+      .setTextButtonStyle(CardService.TextButtonStyle.FILLED));
+  }
+
+  // Section actions globales
   const actionSection = CardService.newCardSection()
     .addWidget(CardService.newButtonSet()
       .addButton(CardService.newTextButton()
-        .setText("Enregistrer")
-        .setOnClickAction(CardService.newAction().setFunctionName("saveSettings"))
-        .setTextButtonStyle(CardService.TextButtonStyle.FILLED))
-      .addButton(CardService.newTextButton()
         .setText("▶ Lancer maintenant")
         .setOnClickAction(CardService.newAction().setFunctionName("runTransferNow"))
-        .setTextButtonStyle(CardService.TextButtonStyle.TEXT)))
-    .addWidget(CardService.newTextButton()
-      .setText("⛔ Désactiver tout")
-      .setOnClickAction(CardService.newAction().setFunctionName("disableAll"))
-      .setTextButtonStyle(CardService.TextButtonStyle.TEXT));
+        .setTextButtonStyle(CardService.TextButtonStyle.TEXT))
+      .addButton(CardService.newTextButton()
+        .setText("⛔ Tout désactiver")
+        .setOnClickAction(CardService.newAction().setFunctionName("disableAll"))
+        .setTextButtonStyle(CardService.TextButtonStyle.TEXT)));
 
-  // --- Section Tableau de bord ---
-  const scriptProps = PropertiesService.getScriptProperties();
-  const processedIds = getProcessedIds();
-  const totalProcessed = processedIds.length;
-  const lastRun = scriptProps.getProperty(CONFIG.LAST_RUN_KEY) || "Jamais";
-  const lastCount = scriptProps.getProperty(CONFIG.LAST_COUNT_KEY) || "0";
-  const currentQuery = props.getProperty("query");
-  const currentEmail = props.getProperty("email");
-
+  // Section tableau de bord
+  const activeCount = rules.filter(r => r.enabled).length;
   const statusSection = CardService.newCardSection()
     .setHeader("Tableau de bord")
     .addWidget(CardService.newDecoratedText()
-      .setTopLabel("Configuration active")
-      .setText(currentQuery && currentEmail
-        ? `<font color="#1e8e3e"><b>Activée :</b></font> ${currentQuery} → ${currentEmail}`
-        : `<font color="#d93025"><i>Non configuré</i></font>`)
-      .setWrapText(true)
+      .setTopLabel("Règles actives")
+      .setText(`<b>${activeCount}</b> / ${rules.length}`)
       .setStartIcon(CardService.newIconImage()
         .setIconUrl("https://www.gstatic.com/images/icons/material/system/2x/settings_googblue_48dp.png")))
     .addWidget(CardService.newDecoratedText()
-      .setTopLabel("Messages transférés (total)")
-      .setText(`<b>${totalProcessed}</b> message(s) en mémoire`)
+      .setTopLabel("Messages transférés")
+      .setText(`<b>${totalProcessed}</b> en mémoire`)
       .setStartIcon(CardService.newIconImage()
         .setIconUrl("https://www.gstatic.com/images/icons/material/system/2x/check_circle_googgreen_48dp.png")))
     .addWidget(CardService.newDecoratedText()
@@ -97,8 +143,8 @@ function buildSettingsCard() {
     .addWidget(CardService.newDecoratedText()
       .setTopLabel("Déclencheur automatique")
       .setText(isTriggerActive_()
-        ? `<font color="#1e8e3e"><b>Actif</b></font> — toutes les ${CONFIG.TRIGGER_INTERVAL_MIN} min`
-        : `<font color="#d93025"><b>Inactif</b></font> — enregistrez pour activer`)
+        ? `<font color="#1e8e3e"><b>Actif</b></font> — toutes les ${CONFIG.TRIGGER_INTERVAL_HOURS}h`
+        : `<font color="#d93025"><b>Inactif</b></font>`)
       .setStartIcon(CardService.newIconImage()
         .setIconUrl("https://www.gstatic.com/images/icons/material/system/2x/timer_googblue_48dp.png")))
     .addWidget(CardService.newTextButton()
@@ -108,23 +154,119 @@ function buildSettingsCard() {
 
   return CardService.newCardBuilder()
     .setHeader(header)
-    .addSection(infoSection)
-    .addSection(formSection)
+    .addSection(rulesSection)
     .addSection(actionSection)
     .addSection(statusSection)
     .build();
 }
 
-/**
- * Enregistre les variables saisies par l'utilisateur
- */
-function saveSettings(e) {
+// ============================================================
+//  CARTE ÉDITION D'UNE RÈGLE
+// ============================================================
+
+function showNewRuleCard() {
+  const card = buildEditRuleCard_(null);
+  return CardService.newActionResponseBuilder()
+    .setNavigation(CardService.newNavigation().pushCard(card))
+    .build();
+}
+
+function showEditRuleCard(e) {
+  const ruleId = e.parameters.ruleId;
+  const card = buildEditRuleCard_(ruleId);
+  return CardService.newActionResponseBuilder()
+    .setNavigation(CardService.newNavigation().pushCard(card))
+    .build();
+}
+
+function buildEditRuleCard_(ruleId) {
+  const rule = ruleId ? findRule_(ruleId) : null;
+  const isNew = !rule;
+
+  const header = CardService.newCardHeader()
+    .setTitle(isNew ? "Nouvelle règle" : "Modifier la règle")
+    .setImageUrl("https://www.gstatic.com/images/icons/material/system/2x/edit_googblue_48dp.png")
+    .setImageStyle(CardService.ImageStyle.CIRCLE);
+
+  const formSection = CardService.newCardSection()
+    .addWidget(CardService.newTextInput()
+      .setFieldName("query")
+      .setTitle("Requête Gmail (ex: is:unread)")
+      .setHint("Astuce : utilisez 'is:unread' pour cibler les nouveaux messages.")
+      .setValue(rule ? rule.query : ""))
+    .addWidget(CardService.newTextInput()
+      .setFieldName("email")
+      .setTitle("Adresse email de destination")
+      .setHint("L'adresse doit être validée dans Gmail > Paramètres > Transfert et POP/IMAP.")
+      .setValue(rule ? rule.email : ""))
+    .addWidget(CardService.newTextInput()
+      .setFieldName("message")
+      .setTitle("Message d'accompagnement (Optionnel)")
+      .setMultiline(true)
+      .setValue(rule ? rule.message : ""));
+
+  // Toggle activé/désactivé (uniquement pour les règles existantes)
+  if (!isNew) {
+    formSection.addWidget(CardService.newDecoratedText()
+      .setTopLabel("Statut")
+      .setText(rule.enabled ? "Active" : "En pause")
+      .setSwitchControl(CardService.newSwitch()
+        .setFieldName("enabled")
+        .setValue("true")
+        .setSelected(rule.enabled)));
+  }
+
+  // Boutons
+  const saveAction = CardService.newAction()
+    .setFunctionName("saveRule")
+    .setParameters({"ruleId": ruleId || ""});
+
+  const actionSection = CardService.newCardSection()
+    .addWidget(CardService.newButtonSet()
+      .addButton(CardService.newTextButton()
+        .setText("Enregistrer")
+        .setOnClickAction(saveAction)
+        .setTextButtonStyle(CardService.TextButtonStyle.FILLED)));
+
+  // Bouton supprimer (uniquement pour les règles existantes)
+  if (!isNew) {
+    actionSection.addWidget(CardService.newTextButton()
+      .setText("🗑️ Supprimer cette règle")
+      .setOnClickAction(CardService.newAction()
+        .setFunctionName("showConfirmDeleteCard")
+        .setParameters({"ruleId": ruleId}))
+      .setTextButtonStyle(CardService.TextButtonStyle.TEXT));
+  }
+
+  return CardService.newCardBuilder()
+    .setHeader(header)
+    .addSection(formSection)
+    .addSection(actionSection)
+    .build();
+}
+
+// ============================================================
+//  SAUVEGARDE / SUPPRESSION D'UNE RÈGLE
+// ============================================================
+
+function saveRule(e) {
   try {
-    const values = e.formInput;
-    
-    // Validation basique de l'email
+    const values = e.formInput || {};
+    const ruleId = e.parameters.ruleId;
+
+    const query = (values.query || "").trim();
+    const email = (values.email || "").trim();
+
+    if (!query || !email) {
+      return CardService.newActionResponseBuilder()
+        .setNotification(CardService.newNotification()
+          .setText("Erreur : la requête et l'email sont requis.")
+          .setType(CardService.NotificationType.ERROR))
+        .build();
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (values.email && !emailRegex.test(values.email)) {
+    if (!emailRegex.test(email)) {
       return CardService.newActionResponseBuilder()
         .setNotification(CardService.newNotification()
           .setText("Erreur : Adresse email invalide.")
@@ -132,118 +274,182 @@ function saveSettings(e) {
         .build();
     }
 
-    const props = PropertiesService.getUserProperties();
-    
-    // Enregistrement avec des valeurs par défaut si vide
-    props.setProperty("query", (values.query || "").trim());
-    props.setProperty("email", (values.email || "").trim());
-    props.setProperty("message", (values.message || "").trim());
+    const rules = getRules_();
+    const message = (values.message || "").trim();
 
-    // Créer ou supprimer le trigger selon l'état de la config
-    const configValid = (values.query || "").trim() && (values.email || "").trim();
-    let statusMsg;
-
-    if (configValid) {
-      ensureTrigger_();
-      statusMsg = "Configuration enregistrée — transfert automatique activé !";
+    if (ruleId) {
+      // Modification
+      const idx = rules.findIndex(r => r.id === ruleId);
+      if (idx !== -1) {
+        rules[idx].query = query;
+        rules[idx].email = email;
+        rules[idx].message = message;
+        // Le switch renvoie "true" si coché, absent sinon
+        rules[idx].enabled = (values.enabled === "true");
+      }
     } else {
-      removeTriggers_("processTransfer");
-      statusMsg = "Configuration enregistrée — déclencheur désactivé.";
+      // Création
+      rules.push({
+        id: "r_" + Date.now(),
+        query: query,
+        email: email,
+        message: message,
+        enabled: true
+      });
     }
 
-    return CardService.newActionResponseBuilder()
-      .setNotification(CardService.newNotification()
-        .setText(statusMsg))
-      .build();
-  } catch (error) {
-    console.error("Erreur lors de l'enregistrement:", error);
-    return CardService.newActionResponseBuilder()
-      .setNotification(CardService.newNotification()
-        .setText("Erreur lors de l'enregistrement.")
-        .setType(CardService.NotificationType.ERROR))
-      .build();
-  }
-}
+    saveRules_(rules);
+    updateTriggerState_(rules);
 
-/**
- * Désactive tout : supprime la configuration, le trigger et l'historique
- */
-function disableAll() {
-  try {
-    // Supprimer la configuration utilisateur
-    const props = PropertiesService.getUserProperties();
-    props.deleteProperty("query");
-    props.deleteProperty("email");
-    props.deleteProperty("message");
-
-    // Supprimer le trigger
-    removeTriggers_("processTransfer");
-
-    // Supprimer l'historique
-    const scriptProps = PropertiesService.getScriptProperties();
-    scriptProps.deleteProperty(CONFIG.PROCESSED_IDS_KEY);
-    scriptProps.deleteProperty(CONFIG.LAST_RUN_KEY);
-    scriptProps.deleteProperty(CONFIG.LAST_COUNT_KEY);
-
-    // Rafraîchir la carte
     const updatedCard = buildSettingsCard();
     return CardService.newActionResponseBuilder()
-      .setNavigation(CardService.newNavigation().updateCard(updatedCard))
+      .setNavigation(CardService.newNavigation().popToRoot().updateCard(updatedCard))
       .setNotification(CardService.newNotification()
-        .setText("Tout a été désactivé et réinitialisé."))
+        .setText(ruleId ? "Règle mise à jour !" : "Nouvelle règle créée !"))
       .build();
   } catch (error) {
-    console.error("Erreur lors de la désactivation:", error);
+    console.error("Erreur saveRule:", error);
     return CardService.newActionResponseBuilder()
       .setNotification(CardService.newNotification()
-        .setText("Erreur lors de la désactivation.")
-        .setType(CardService.NotificationType.ERROR))
-      .build();
-  }
-}
-
-/**
- * Bouton "Lancer maintenant" — exécute le transfert et notifie l'utilisateur
- */
-function runTransferNow() {
-  try {
-    const result = processTransfer();
-    // Rafraîchir la carte pour mettre à jour le tableau de bord
-    const updatedCard = buildSettingsCard();
-    return CardService.newActionResponseBuilder()
-      .setNavigation(CardService.newNavigation().updateCard(updatedCard))
-      .setNotification(CardService.newNotification()
-        .setText(result.count > 0
-          ? `${result.count} message(s) transféré(s) avec succès !`
-          : "Aucun nouveau message à transférer."))
-      .build();
-  } catch (error) {
-    console.error("Erreur lors de l'exécution manuelle:", error);
-    return CardService.newActionResponseBuilder()
-      .setNotification(CardService.newNotification()
-        .setText("Erreur lors du transfert. Consultez les logs.")
+        .setText("Erreur : " + error.message)
         .setType(CardService.NotificationType.ERROR))
       .build();
   }
 }
 
 // ============================================================
-//  CARTE HISTORIQUE DÉTAILLÉ
+//  CONFIRMATION DE SUPPRESSION
 // ============================================================
 
-/**
- * Affiche la carte d'historique (navigation push)
- */
-function showHistoryCard() {
-  const card = buildHistoryCard();
+function showConfirmDeleteCard(e) {
+  const ruleId = e.parameters.ruleId;
+  const rule = findRule_(ruleId);
+
+  const header = CardService.newCardHeader()
+    .setTitle("Confirmer la suppression")
+    .setImageUrl("https://www.gstatic.com/images/icons/material/system/2x/warning_googyellow_48dp.png")
+    .setImageStyle(CardService.ImageStyle.CIRCLE);
+
+  const infoSection = CardService.newCardSection()
+    .addWidget(CardService.newDecoratedText()
+      .setTopLabel("Règle à supprimer")
+      .setText(rule ? `<b>${rule.query}</b> → ${rule.email}` : "<i>Introuvable</i>")
+      .setWrapText(true));
+
+  const actionSection = CardService.newCardSection()
+    .addWidget(CardService.newButtonSet()
+      .addButton(CardService.newTextButton()
+        .setText("Oui, supprimer")
+        .setOnClickAction(CardService.newAction()
+          .setFunctionName("deleteRule")
+          .setParameters({"ruleId": ruleId}))
+        .setTextButtonStyle(CardService.TextButtonStyle.FILLED))
+      .addButton(CardService.newTextButton()
+        .setText("Annuler")
+        .setOnClickAction(CardService.newAction().setFunctionName("cancelDelete"))
+        .setTextButtonStyle(CardService.TextButtonStyle.TEXT)));
+
+  const card = CardService.newCardBuilder()
+    .setHeader(header)
+    .addSection(infoSection)
+    .addSection(actionSection)
+    .build();
+
   return CardService.newActionResponseBuilder()
     .setNavigation(CardService.newNavigation().pushCard(card))
     .build();
 }
 
-/**
- * Construit une carte affichant les derniers messages transférés
- */
+function deleteRule(e) {
+  try {
+    const ruleId = e.parameters.ruleId;
+    let rules = getRules_().filter(r => r.id !== ruleId);
+    saveRules_(rules);
+    updateTriggerState_(rules);
+
+    const updatedCard = buildSettingsCard();
+    return CardService.newActionResponseBuilder()
+      .setNavigation(CardService.newNavigation().popToRoot().updateCard(updatedCard))
+      .setNotification(CardService.newNotification().setText("Règle supprimée."))
+      .build();
+  } catch (error) {
+    console.error("Erreur deleteRule:", error);
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText("Erreur : " + error.message)
+        .setType(CardService.NotificationType.ERROR))
+      .build();
+  }
+}
+
+function cancelDelete() {
+  return CardService.newActionResponseBuilder()
+    .setNavigation(CardService.newNavigation().popCard())
+    .build();
+}
+
+// ============================================================
+//  ACTIONS GLOBALES
+// ============================================================
+
+function disableAll() {
+  try {
+    const rules = getRules_().map(r => ({ ...r, enabled: false }));
+    saveRules_(rules);
+    removeTriggers_("processTransfer");
+
+    const scriptProps = PropertiesService.getScriptProperties();
+    scriptProps.deleteProperty(CONFIG.PROCESSED_IDS_KEY);
+    scriptProps.deleteProperty(CONFIG.LAST_RUN_KEY);
+    scriptProps.deleteProperty(CONFIG.LAST_COUNT_KEY);
+
+    const updatedCard = buildSettingsCard();
+    return CardService.newActionResponseBuilder()
+      .setNavigation(CardService.newNavigation().updateCard(updatedCard))
+      .setNotification(CardService.newNotification()
+        .setText("Toutes les règles ont été mises en pause."))
+      .build();
+  } catch (error) {
+    console.error("Erreur disableAll:", error);
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText("Erreur : " + error.message)
+        .setType(CardService.NotificationType.ERROR))
+      .build();
+  }
+}
+
+function runTransferNow() {
+  try {
+    const result = processTransfer();
+    const updatedCard = buildSettingsCard();
+    return CardService.newActionResponseBuilder()
+      .setNavigation(CardService.newNavigation().updateCard(updatedCard))
+      .setNotification(CardService.newNotification()
+        .setText(result.count > 0
+          ? `${result.count} message(s) transféré(s) !`
+          : "Aucun nouveau message à transférer."))
+      .build();
+  } catch (error) {
+    console.error("Erreur runTransferNow:", error);
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText("Erreur : " + error.message)
+        .setType(CardService.NotificationType.ERROR))
+      .build();
+  }
+}
+
+// ============================================================
+//  CARTE HISTORIQUE
+// ============================================================
+
+function showHistoryCard() {
+  return CardService.newActionResponseBuilder()
+    .setNavigation(CardService.newNavigation().pushCard(buildHistoryCard()))
+    .build();
+}
+
 function buildHistoryCard() {
   const header = CardService.newCardHeader()
     .setTitle("Historique des transferts")
@@ -253,7 +459,6 @@ function buildHistoryCard() {
 
   const processedIds = getProcessedIds();
 
-  // Section statistiques
   const statsSection = CardService.newCardSection()
     .setHeader("Statistiques")
     .addWidget(CardService.newDecoratedText()
@@ -270,7 +475,6 @@ function buildHistoryCard() {
     .setHeader(header)
     .addSection(statsSection);
 
-  // Section des derniers messages (les 20 plus récents)
   if (processedIds.length > 0) {
     const recentIds = processedIds.slice(-20).reverse();
     const messagesSection = CardService.newCardSection()
@@ -286,19 +490,17 @@ function buildHistoryCard() {
             .setBottomLabel(`De : ${msg.getFrom()}`)
             .setWrapText(true));
         }
-      } catch (e) {
-        // Message supprimé ou inaccessible, on l'affiche tel quel
+      } catch (err) {
         messagesSection.addWidget(CardService.newDecoratedText()
-          .setText(`<i>Message inaccessible</i>`)
+          .setText("<i>Message inaccessible</i>")
           .setBottomLabel(`ID : ${msgId}`));
       }
     });
-
     cardBuilder.addSection(messagesSection);
   } else {
     cardBuilder.addSection(CardService.newCardSection()
       .addWidget(CardService.newDecoratedText()
-        .setText("<i>Aucun transfert enregistré pour le moment.</i>")
+        .setText("<i>Aucun transfert enregistré.</i>")
         .setStartIcon(CardService.newIconImage()
           .setIconUrl("https://www.gstatic.com/images/icons/material/system/2x/inbox_grey600_48dp.png"))));
   }
@@ -306,19 +508,15 @@ function buildHistoryCard() {
   return cardBuilder.build();
 }
 
-/**
- * Réinitialise l'historique des messages traités
- */
 function clearHistory() {
-  PropertiesService.getScriptProperties().deleteProperty(CONFIG.PROCESSED_IDS_KEY);
-  PropertiesService.getScriptProperties().deleteProperty(CONFIG.LAST_RUN_KEY);
-  PropertiesService.getScriptProperties().deleteProperty(CONFIG.LAST_COUNT_KEY);
+  const sp = PropertiesService.getScriptProperties();
+  sp.deleteProperty(CONFIG.PROCESSED_IDS_KEY);
+  sp.deleteProperty(CONFIG.LAST_RUN_KEY);
+  sp.deleteProperty(CONFIG.LAST_COUNT_KEY);
 
-  const updatedCard = buildHistoryCard();
   return CardService.newActionResponseBuilder()
-    .setNavigation(CardService.newNavigation().updateCard(updatedCard))
-    .setNotification(CardService.newNotification()
-      .setText("Historique réinitialisé."))
+    .setNavigation(CardService.newNavigation().updateCard(buildHistoryCard()))
+    .setNotification(CardService.newNotification().setText("Historique réinitialisé."))
     .build();
 }
 
@@ -326,40 +524,38 @@ function clearHistory() {
 //  UTILITAIRES
 // ============================================================
 
-/** Formate une date en français lisible */
 function formatDate_(date) {
   return Utilities.formatDate(date, Session.getScriptTimeZone(), "dd/MM/yyyy à HH:mm");
 }
 
-/** Tronque une chaîne avec des points de suspension */
 function truncate_(str, maxLen) {
   if (!str) return "(sans objet)";
   return str.length > maxLen ? str.substring(0, maxLen) + "…" : str;
+}
+
+/** Active ou désactive le trigger selon le nombre de règles actives */
+function updateTriggerState_(rules) {
+  const hasActive = rules.some(r => r.enabled);
+  if (hasActive) {
+    ensureTrigger_();
+  } else {
+    removeTriggers_("processTransfer");
+  }
 }
 
 // ============================================================
 //  GESTION DU DÉCLENCHEUR TEMPOREL
 // ============================================================
 
-/**
- * Crée un déclencheur temporel pour processTransfer s'il n'existe pas déjà.
- * Évite les doublons en supprimant d'abord les triggers existants.
- */
 function ensureTrigger_() {
-  // Supprimer d'éventuels doublons
   removeTriggers_("processTransfer");
-
   ScriptApp.newTrigger("processTransfer")
     .timeBased()
-    .everyMinutes(CONFIG.TRIGGER_INTERVAL_MIN)
+    .everyHours(CONFIG.TRIGGER_INTERVAL_HOURS)
     .create();
-
-  console.log(`Trigger créé : processTransfer toutes les ${CONFIG.TRIGGER_INTERVAL_MIN} min.`);
+  console.log(`Trigger créé : toutes les ${CONFIG.TRIGGER_INTERVAL_HOURS}h.`);
 }
 
-/**
- * Supprime tous les triggers associés à une fonction donnée.
- */
 function removeTriggers_(functionName) {
   ScriptApp.getProjectTriggers().forEach(trigger => {
     if (trigger.getHandlerFunction() === functionName) {
@@ -368,117 +564,95 @@ function removeTriggers_(functionName) {
   });
 }
 
-/**
- * Vérifie si un trigger est actif pour processTransfer.
- * Utilisé par le tableau de bord.
- */
 function isTriggerActive_() {
   return ScriptApp.getProjectTriggers().some(
-    trigger => trigger.getHandlerFunction() === "processTransfer"
+    t => t.getHandlerFunction() === "processTransfer"
   );
 }
 
 // ============================================================
-//  SUIVI PAR MESSAGE INDIVIDUEL (résout le piège des threads)
+//  SUIVI PAR MESSAGE INDIVIDUEL
 // ============================================================
 
-/**
- * Récupère l'ensemble des IDs de messages déjà traités.
- * Stockés en JSON dans ScriptProperties pour être partagés entre triggers.
- */
 function getProcessedIds() {
   const raw = PropertiesService.getScriptProperties()
     .getProperty(CONFIG.PROCESSED_IDS_KEY);
   return raw ? JSON.parse(raw) : [];
 }
 
-/**
- * Sauvegarde les IDs traités en purgeant les plus anciens si nécessaire.
- */
 function saveProcessedIds(ids) {
-  // Garder uniquement les N derniers pour ne pas exploser le quota (9 KB/clé)
   const trimmed = ids.slice(-CONFIG.MAX_STORED_IDS);
   PropertiesService.getScriptProperties()
     .setProperty(CONFIG.PROCESSED_IDS_KEY, JSON.stringify(trimmed));
 }
 
+// ============================================================
+//  TRAITEMENT PRINCIPAL — MULTI-RÈGLES
+// ============================================================
+
 /**
- * Fonction principale de traitement.
- * À déclencher via un Trigger (ex: toutes les 15 ou 30 minutes)
- * ou manuellement via le bouton "Lancer maintenant".
- *
- * Retourne un objet { count } pour que l'appelant puisse notifier.
+ * Itère sur toutes les règles actives et transfère les messages.
+ * Retourne { count } pour la notification.
  */
 function processTransfer() {
-  const props = PropertiesService.getUserProperties();
-  const query = props.getProperty("query");
-  const forwardTo = props.getProperty("email");
-  const bodyIntro = props.getProperty("message");
+  const rules = getRules_().filter(r => r.enabled);
 
-  // Vérification des prérequis
-  if (!query || !forwardTo) {
-    console.warn("Configuration incomplète. Arrêt du traitement.");
+  if (rules.length === 0) {
+    console.warn("Aucune règle active.");
     return { count: 0 };
   }
 
   try {
-    // Filtre temporel pour économiser du temps d'exécution (6 min max)
-    const finalQuery = `${query} newer_than:7d`;
-    const threads = GmailApp.search(finalQuery, 0, CONFIG.MAX_THREADS);
-
-    if (threads.length === 0) {
-      console.log("Aucun thread correspondant à la requête.");
-      return { count: 0 };
-    }
-
-    // Charger les IDs déjà traités
     const processedIds = new Set(getProcessedIds());
     const newlyProcessedIds = [];
+    let totalCount = 0;
 
-    // Formatage HTML du message d'introduction
-    const htmlIntro = bodyIntro && bodyIntro.trim()
-      ? `<div style="padding:10px;background-color:#f0f0f0;border-left:4px solid #4285f4;margin-bottom:15px;">${bodyIntro.trim().replace(/\n/g, '<br>')}</div>`
-      : '';
+    rules.forEach(rule => {
+      try {
+        const finalQuery = `${rule.query} newer_than:7d`;
+        const threads = GmailApp.search(finalQuery, 0, CONFIG.MAX_THREADS);
 
-    let messagesProcessedCount = 0;
+        const htmlIntro = rule.message && rule.message.trim()
+          ? `<div style="padding:10px;background-color:#f0f0f0;border-left:4px solid #4285f4;margin-bottom:15px;">${rule.message.trim().replace(/\n/g, '<br>')}</div>`
+          : '';
 
-    threads.forEach(thread => {
-      thread.getMessages().forEach(msg => {
-        const msgId = msg.getId();
+        threads.forEach(thread => {
+          thread.getMessages().forEach(msg => {
+            const msgId = msg.getId();
+            if (processedIds.has(msgId)) return;
 
-        // Ignorer les messages déjà transférés (suivi individuel)
-        if (processedIds.has(msgId)) return;
-
-        try {
-          msg.forward(forwardTo, {
-            subject: `[Transfert] ${msg.getSubject().replace(/^\[Transfert\] /g, '')}`,
-            htmlBody: `${htmlIntro}<div>--- <b>Message original de ${msg.getFrom()}</b> ---</div><br>${msg.getBody()}`
+            try {
+              msg.forward(rule.email, {
+                subject: `[Transfert] ${msg.getSubject().replace(/^\[Transfert\] /g, '')}`,
+                htmlBody: `${htmlIntro}<div>--- <b>Message original de ${msg.getFrom()}</b> ---</div><br>${msg.getBody()}`
+              });
+              newlyProcessedIds.push(msgId);
+              processedIds.add(msgId);
+              totalCount++;
+            } catch (fwdErr) {
+              console.error(`Erreur transfert ${msgId} (règle ${rule.id}):`, fwdErr);
+            }
           });
-
-          newlyProcessedIds.push(msgId);
-          messagesProcessedCount++;
-        } catch (forwardError) {
-          console.error(`Erreur transfert message ${msgId}:`, forwardError);
-        }
-      });
+        });
+      } catch (ruleErr) {
+        console.error(`Erreur règle ${rule.id} (${rule.query}):`, ruleErr);
+      }
     });
 
-    // Persister les nouveaux IDs traités
     if (newlyProcessedIds.length > 0) {
-      saveProcessedIds([...processedIds, ...newlyProcessedIds]);
+      saveProcessedIds([...getProcessedIds(), ...newlyProcessedIds]);
     }
 
-    // Sauvegarder les métadonnées du dernier run pour le tableau de bord
     const scriptProps = PropertiesService.getScriptProperties();
     scriptProps.setProperty(CONFIG.LAST_RUN_KEY,
       Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy à HH:mm"));
-    scriptProps.setProperty(CONFIG.LAST_COUNT_KEY, String(messagesProcessedCount));
+    scriptProps.setProperty(CONFIG.LAST_COUNT_KEY, String(totalCount));
 
-    console.log(`${messagesProcessedCount} message(s) transféré(s) dans ${threads.length} fil(s).`);
-    return { count: messagesProcessedCount };
+    console.log(`${totalCount} message(s) transféré(s) pour ${rules.length} règle(s).`);
+    return { count: totalCount };
 
   } catch (error) {
-    console.error("Erreur générale lors du traitement:", error);
+    console.error("Erreur générale processTransfer:", error);
     return { count: 0 };
   }
 }
