@@ -3,98 +3,129 @@
 [![Google Apps Script](https://img.shields.io/badge/Google%20Apps%20Script-4285F4?style=for-the-badge&logo=google-apps-script&logoColor=white)](https://developers.google.com/apps-script)
 [![Gmail](https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white)](https://mail.google.com/)
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg?style=for-the-badge)](https://unlicense.org/)
+[![Version](https://img.shields.io/badge/version-2.0.0-green.svg?style=for-the-badge)](https://github.com/fabricefx/gmail-auto-forward-pro)
 
-**Gmail AutoForward Pro** est un Add-on Google Apps Script conçu pour combler les lacunes des filtres de transfert natifs de Gmail. Contrairement aux filtres standards, cet outil vous permet d'ajouter un contexte personnalisé à chaque mail transféré et de suivre l'activité via un tableau de bord intégré.
-
----
-
-## Pourquoi utiliser cet outil ?
-
-* **Notes personnalisées** : Ajoutez une introduction HTML automatique avant le message d'origine pour donner du contexte à vos transferts.
-* **Zéro doublon** : Suivi rigoureux par ID unique (et non par fil de discussion) pour garantir qu'aucun message n'est traité deux fois.
-* **Tableau de bord** : Visualisez l'état de votre automate et l'historique en mémoire (jusqu'à 500 transferts enregistrés).
-* **Auto-piloté** : Gestion intelligente des déclencheurs (triggers) temporels activables directement depuis l'interface de configuration.
+**Gmail AutoForward Pro** est un add-on Google Workspace puissant conçu pour automatiser le transfert de courriels avec une flexibilité supérieure aux filtres Gmail standards. Il permet d'ajouter un contexte personnalisé aux messages transférés et de gérer plusieurs règles complexes depuis une interface centralisée.
 
 ---
 
-## Fonctionnalités techniques
+## ✨ Points Forts & fonctionnalités
 
-* **Filtrage avancé** : Utilisation de la syntaxe de recherche Gmail native (ex: `is:unread`, `from:boss@company.com`).
-* **Exécution en arrière-plan** : Analyse automatique toutes les 15 minutes.
-* **Historique détaillé** : Consultation des messages récemment traités avec sujet, date et expéditeur.
+* **Multi-Règles** : Configurez jusqu'à 10 règles de transfert simultanées avec des critères de recherche distincts.
+* **Contextualisation** : Ajoutez un message d'introduction HTML personnalisé au début de chaque mail transféré.
+* **Zéro Doublon** : Suivi rigoureux par ID unique (cache de 500 IDs) pour garantir qu'aucun e-mail n'est traité deux fois.
+* **Tableau de Bord** : Visualisation en temps réel du statut des règles et de la dernière exécution.
+* **Historique Détaillé** : Accès aux 20 derniers messages transférés pour un suivi précis.
+* **Gestion des Triggers** : Création automatique de déclencheurs temporels (toutes les heures) liés à l'activation des règles.
 
 ---
 
-## Installation manuelle
+## 🛠 Technologies Uutilisées
+
+* **Langage** : Google Apps Script (JavaScript V8).
+* **Services Google** : `GmailApp` (Recherche/Transfert), `CardService` (UI), `PropertiesService` (Stockage).
+* **Interface** : Google Workspace Add-on (Framework Card).
+
+---
+
+## 🚀 Installation & Configuration
 
 ### 1. Prérequis
 * Un compte Google (Gmail ou Workspace).
-* **Important** : L'adresse de destination doit être validée dans vos paramètres Gmail (onglet "Transfert et POP/IMAP").
+* **Important** : L'adresse de destination doit être validée dans vos paramètres Gmail sous **"Transfert et POP/IMAP"**.
 
-### 2. Configuration du script
-1.  Créez un nouveau projet sur [Google Apps Script](https://script.google.com/home).
-2.  Copiez le contenu de `Code.gs`.
-3.  Activez l'affichage du fichier manifeste `appsscript.json` dans les paramètres et remplacez son contenu.
+### 2. Configuration du Projet
+1.  Ouvrez [Google Apps Script](https://script.google.com/home).
+2.  Créez un nouveau projet.
+3.  Copiez le contenu de `Code.gs` et `appsscript.json` (activez l'affichage du manifeste dans les paramètres du projet).
 
 ### 3. Déploiement
 1.  **Déployer** > **Tester les déploiements**.
-2.  Choisissez le type **Add-on Google Workspace**.
-3.  Installez-le pour votre propre compte.
+2.  Sélectionner **Add-on Google Workspace**.
+3.  Installer l'add-on pour votre compte.
+
+---
+
+## 📖 Utilisation
+
+1.  **Lancement** : Ouvrez l'icône de l'add-on dans la barre latérale Gmail.
+2.  **Configuration** : Cliquez sur "+ Ajouter une règle", saisissez votre requête (ex: `label:finance`) et le destinataire.
+3.  **Activation** : Activez l'interrupteur pour que le trigger horaire commence le scan.
+4.  **Manuel** : Utilisez "Lancer maintenant" pour un traitement immédiat hors planning.
 
 ---
 
 ## 📜 Licence
 
-Logiciel libre et sans restriction (Public Domain) sous licence **Unlicense**.
+Ce projet est sous licence **Unlicense**. Libre de toute restriction, domaine public.
 
 ---
 
-## 🏷 Topics GitHub
-`google-apps-script`, `gmail-addon`, `automation`, `productivity`, `workflow`, `javascript`
+## 👤 Auteur
+
+**Fabrice Faucheux** — [faucheux.bzh](https://faucheux.bzh)
+
+---
+---
+
+# 🚀 Gmail AutoForward Pro (English Version)
+
+**Gmail AutoForward Pro** is a professional Google Workspace add-on designed to automate email forwarding with advanced logic beyond standard Gmail filters. It allows for personalized context injection and centralized management of complex forwarding rules.
 
 ---
 
-# 🚀 Gmail AutoForward Pro (English)
+## ✨ Key Features
 
-**Gmail AutoForward Pro** is a Google Apps Script Add-on designed to bridge the gaps in Gmail's native forwarding filters. Unlike standard filters, this tool allows you to add personalized context to every forwarded email and track activity through an integrated dashboard.
-
----
-
-## 🌟 Why use this tool?
-
-* **Custom Notes**: Automatically add an HTML introduction before the original message to provide context for your forwards.
-* **Zero Duplicates**: Rigorous tracking by unique message ID (rather than thread) ensures no message is processed twice.
-* **Dashboard**: Monitor your automation status and history in memory (up to 500 recorded transfers).
-* **Auto-pilot**: Smart management of time-based triggers, togglable directly from the configuration interface.
+* **Multi-Rule Engine**: Set up to 10 concurrent forwarding rules with specific search queries.
+* **Message Contextualization**: Prepend custom HTML headers to forwarded emails.
+* **Duplicate Prevention**: Built-in tracking of up to 500 unique message IDs to avoid double-sending.
+* **Status Dashboard**: Real-time monitoring of active rules and last runtime data.
+* **Logs & History**: Review the last 20 forwarded items with subject and original sender details.
+* **Smart Triggers**: Automated creation/deletion of hourly time-based triggers based on rule status.
 
 ---
 
-## ✨ Technical Features
+## 🛠 Tech Stack
 
-* **Advanced Filtering**: Leverages native Gmail search syntax (e.g., `is:unread`, `from:boss@company.com`).
-* **Background Execution**: Automatic scans every 15 minutes.
-* **Detailed History**: Review recently processed messages with subject, date, and sender details.
+* **Language**: Google Apps Script (JavaScript V8).
+* **Google APIs**: `GmailApp`, `CardService`, `PropertiesService`.
+* **Frontend**: Google Workspace Add-on Card Framework.
 
 ---
 
-## 🚀 Manual Installation
+## 🚀 Installation
 
 ### 1. Prerequisites
-* A Google account (Gmail or Workspace).
-* **Important**: The destination address must be verified in your Gmail settings (under the "Forwarding and POP/IMAP" tab).
+* A valid Google Account.
+* **Note**: Ensure the forwarding address is verified in Gmail Settings > **"Forwarding and POP/IMAP"**.
 
-### 2. Script Setup
-1.  Create a new project at [Google Apps Script](https://script.google.com/home).
-2.  Copy the content of `Code.gs`.
-3.  Enable the `appsscript.json` manifest file in settings and replace its content.
+### 2. Manual Setup
+1.  Go to [Google Apps Script](https://script.google.com/home).
+2.  Create a new project.
+3.  Upload `Code.gs` and update the `appsscript.json` manifest.
 
 ### 3. Deployment
-1.  **Deploy** > **Test deployments**.
-2.  Select **Google Workspace Add-on**.
-3.  Install it for your own account.
+1.  Click **Deploy** > **Test deployments**.
+2.  Choose **Google Workspace Add-on**.
+3.  Install it locally for your account.
+
+---
+
+## 📖 How to Use
+
+1.  **Access**: Click the add-on icon in your Gmail sidebar.
+2.  **Create**: Tap "+ Add Rule", enter a search query (e.g., `is:unread from:boss`), and the target email.
+3.  **Automate**: Toggle the rule "ON" to enable the background hourly sync.
+4.  **Instant**: Use "Run Now" for immediate processing of pending emails.
 
 ---
 
 ## 📜 License
 
-Free and unencumbered software released into the public domain under the **Unlicense**.
+Distributed under the **Unlicense**. Public domain software.
+
+---
+
+## 👤 Author
+
+**Fabrice Faucheux** — [faucheux.bzh](https://faucheux.bzh)
