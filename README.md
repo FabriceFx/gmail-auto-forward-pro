@@ -28,7 +28,7 @@
 
 ---
 
-## 🚀 Installation & Configuration
+## 🚀 Installation & configuration
 
 ### 1. Prérequis
 * Un compte Google (Gmail ou Workspace).
