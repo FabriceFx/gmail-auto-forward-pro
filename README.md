@@ -8,7 +8,7 @@
 
 ---
 
-## 🌟 Pourquoi utiliser cet outil ?
+## Pourquoi utiliser cet outil ?
 
 * **Notes personnalisées** : Ajoutez une introduction HTML automatique avant le message d'origine pour donner du contexte à vos transferts.
 * **Zéro doublon** : Suivi rigoureux par ID unique (et non par fil de discussion) pour garantir qu'aucun message n'est traité deux fois.
@@ -17,21 +17,21 @@
 
 ---
 
-## ✨ Fonctionnalités techniques
+## Fonctionnalités techniques
 
-* **Filtrage Avancé** : Utilisation de la syntaxe de recherche Gmail native (ex: `is:unread`, `from:boss@company.com`).
+* **Filtrage avancé** : Utilisation de la syntaxe de recherche Gmail native (ex: `is:unread`, `from:boss@company.com`).
 * **Exécution en arrière-plan** : Analyse automatique toutes les 15 minutes.
 * **Historique détaillé** : Consultation des messages récemment traités avec sujet, date et expéditeur.
 
 ---
 
-## 🚀 Installation Manuelle
+## Installation manuelle
 
 ### 1. Prérequis
 * Un compte Google (Gmail ou Workspace).
 * **Important** : L'adresse de destination doit être validée dans vos paramètres Gmail (onglet "Transfert et POP/IMAP").
 
-### 2. Configuration du Script
+### 2. Configuration du script
 1.  Créez un nouveau projet sur [Google Apps Script](https://script.google.com/home).
 2.  Copiez le contenu de `Code.gs`.
 3.  Activez l'affichage du fichier manifeste `appsscript.json` dans les paramètres et remplacez son contenu.
