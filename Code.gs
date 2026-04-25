@@ -9,7 +9,8 @@ const CONFIG = {
   LAST_COUNT_KEY: "lastRunCount",
   TRIGGER_INTERVAL_HOURS: 1,
   RULES_KEY: "rules",
-  MAX_RULES: 10
+  MAX_RULES: 10,
+  VERSION: "2.0.0"
 };
 
 // ============================================================
@@ -157,6 +158,7 @@ function buildSettingsCard() {
     .addSection(rulesSection)
     .addSection(actionSection)
     .addSection(statusSection)
+    .setFixedFooter(buildFooter_())
     .build();
 }
 
@@ -202,6 +204,7 @@ function buildEditRuleCard_(ruleId) {
     .addWidget(CardService.newTextInput()
       .setFieldName("message")
       .setTitle("Message d'accompagnement (Optionnel)")
+      .setHint("200 caractères max recommandés pour préserver le quota de stockage.")
       .setMultiline(true)
       .setValue(rule ? rule.message : ""));
 
@@ -242,6 +245,7 @@ function buildEditRuleCard_(ruleId) {
     .setHeader(header)
     .addSection(formSection)
     .addSection(actionSection)
+    .setFixedFooter(buildFooter_())
     .build();
 }
 
@@ -353,6 +357,7 @@ function showConfirmDeleteCard(e) {
     .setHeader(header)
     .addSection(infoSection)
     .addSection(actionSection)
+    .setFixedFooter(buildFooter_())
     .build();
 
   return CardService.newActionResponseBuilder()
@@ -505,7 +510,9 @@ function buildHistoryCard() {
           .setIconUrl("https://www.gstatic.com/images/icons/material/system/2x/inbox_grey600_48dp.png"))));
   }
 
-  return cardBuilder.build();
+  return cardBuilder
+    .setFixedFooter(buildFooter_())
+    .build();
 }
 
 function clearHistory() {
@@ -531,6 +538,17 @@ function formatDate_(date) {
 function truncate_(str, maxLen) {
   if (!str) return "(sans objet)";
   return str.length > maxLen ? str.substring(0, maxLen) + "…" : str;
+}
+
+/** Construit le footer fixe avec copyright et version */
+function buildFooter_() {
+  return CardService.newFixedFooter()
+    .setPrimaryButton(CardService.newTextButton()
+      .setText(`© Fabrice Faucheux • v${CONFIG.VERSION}`)
+      .setOpenLink(CardService.newOpenLink()
+        .setUrl("https://faucheux.bzh")
+        .setOpenAs(CardService.OpenAs.OVERLAY))
+      .setDisabled(false));
 }
 
 /** Active ou désactive le trigger selon le nombre de règles actives */
@@ -640,7 +658,8 @@ function processTransfer() {
     });
 
     if (newlyProcessedIds.length > 0) {
-      saveProcessedIds([...getProcessedIds(), ...newlyProcessedIds]);
+      // Réutilise le Set déjà en mémoire (évite un appel supplémentaire à PropertiesService)
+      saveProcessedIds([...processedIds]);
     }
 
     const scriptProps = PropertiesService.getScriptProperties();
