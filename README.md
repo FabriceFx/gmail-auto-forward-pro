@@ -1,10 +1,10 @@
-# 🚀 Gmail AutoForward Plus
+# 🚀 Gmail AutoForward Pro
 
 [![Google Apps Script](https://img.shields.io/badge/Google%20Apps%20Script-4285F4?style=for-the-badge&logo=google-apps-script&logoColor=white)](https://developers.google.com/apps-script)
 [![Gmail](https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white)](https://mail.google.com/)
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg?style=for-the-badge)](https://unlicense.org/)
 
-**Gmail AutoForward Plus** est un Add-on Google Apps Script conçu pour combler les lacunes des filtres de transfert natifs de Gmail. Contrairement aux filtres standards, cet outil vous permet d'ajouter un contexte personnalisé à chaque mail transféré et de suivre l'activité via un tableau de bord intégré.
+**Gmail AutoForward Pro** est un Add-on Google Apps Script conçu pour combler les lacunes des filtres de transfert natifs de Gmail. Contrairement aux filtres standards, cet outil vous permet d'ajouter un contexte personnalisé à chaque mail transféré et de suivre l'activité via un tableau de bord intégré.
 
 ---
 
@@ -54,9 +54,9 @@ Logiciel libre et sans restriction (Public Domain) sous licence **Unlicense**.
 
 ---
 
-# 🚀 Gmail AutoForward Plus (English)
+# 🚀 Gmail AutoForward Pro (English)
 
-**Gmail AutoForward Plus** is a Google Apps Script Add-on designed to bridge the gaps in Gmail's native forwarding filters. Unlike standard filters, this tool allows you to add personalized context to every forwarded email and track activity through an integrated dashboard.
+**Gmail AutoForward Pro** is a Google Apps Script Add-on designed to bridge the gaps in Gmail's native forwarding filters. Unlike standard filters, this tool allows you to add personalized context to every forwarded email and track activity through an integrated dashboard.
 
 ---
 
